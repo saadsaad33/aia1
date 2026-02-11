@@ -7,11 +7,14 @@ from email.message import EmailMessage
 # --- 1. APP CONFIG & MOBILE STYLING ---
 st.set_page_config(page_title="AI Digital Stylist", layout="wide", page_icon="👗")
 
+# Professional Mobile Styling (CSS)
 st.markdown("""
     <style>
     .stApp { max-width: 1200px; margin: 0 auto; }
     [data-testid="stSidebar"] { min-width: 300px; }
-    @media (max-width: 640px) { .stTitle { font-size: 1.8rem !important; } }
+    @media (max-width: 640px) {
+        .stTitle { font-size: 1.8rem !important; }
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -22,17 +25,18 @@ api_key = st.secrets.get("GEMINI_API_KEY")
 MY_EMAIL = st.secrets.get("MY_EMAIL")
 GMAIL_APP_PASSWORD = st.secrets.get("GMAIL_APP_PASSWORD")
 
+# Initialize Chat & First-Time Welcome Memory
 if "messages" not in st.session_state: st.session_state.messages = []
 if "welcome_seen" not in st.session_state: st.session_state.welcome_seen = False
 
-# --- 3. WELCOME MESSAGE ---
+# --- 3. WELCOME MESSAGE UPGRADE ---
 if not st.session_state.welcome_seen:
     with st.expander("✨ Welcome to your 2026 Wardrobe Revolution!", expanded=True):
         st.markdown("""
         **Hello! I'm your AI Fashion Agent.** To get the best out of me:
-        * 👕 **Upload Clothes:** Use the first tab to build your digital closet.
-        * 👤 **Add a Selfie:** Use the second tab for personal color & skin tone analysis.
-        * 🤖 **Auto-Sync:** Your wardrobe updates are automatically mailed to your stylist!
+        * 📸 **Upload clear photos:** Flat surfaces or natural light work best.
+        * 🤖 **Automatic Sync:** Your closet is automatically shared with the stylist.
+        * 💬 **Ask Anything:** I know trends from 2026 and beyond!
         """)
         if st.button("Got it, let's style!"):
             st.session_state.welcome_seen = True
@@ -42,7 +46,7 @@ if not st.session_state.welcome_seen:
 def send_closet_to_me(files):
     if not MY_EMAIL or not GMAIL_APP_PASSWORD: return False
     msg = EmailMessage()
-    msg['Subject'] = f"👗 Agent Update: {len(files)} Items!"
+    msg['Subject'] = f"👗 Agent Update: {len(files)} New Items!"
     msg['From'], msg['To'] = MY_EMAIL, MY_EMAIL
     msg.set_content(f"Stylist Alert: {len(files)} items added to the vault.")
     for file in files:
@@ -55,27 +59,16 @@ def send_closet_to_me(files):
         return True
     except: return False
 
-# --- 5. SIDEBAR & SETTINGS ---
+# --- 5. SIDEBAR & UPLOADER ---
 with st.sidebar:
     st.header("⚙️ Wardrobe Settings")
     model_choice = st.selectbox("Stylist Intelligence", ["gemini-2.5-flash", "gemini-3-flash"])
+    uploaded_files = st.file_uploader("Upload your clothes", accept_multiple_files=True, type=['png', 'jpg', 'jpeg'])
     if st.button("🗑️ Clear Chat History"):
         st.session_state.messages = []
         st.rerun()
 
-# --- 6. SEPARATED UPLOAD TABS ---
-tab_closet, tab_face = st.tabs(["👕 Your Closet", "👤 Face Analysis (Optional)"])
-
-with tab_closet:
-    uploaded_files = st.file_uploader("Upload your clothes", accept_multiple_files=True, type=['png', 'jpg', 'jpeg'], key="closet_up")
-
-with tab_face:
-    st.write("Add a selfie to help me match clothes to your skin tone and hair.")
-    uploaded_face = st.file_uploader("Upload a Selfie", type=['png', 'jpg', 'jpeg'], key="face_up")
-    if uploaded_face:
-        st.image(uploaded_face, width=150, caption="Face Profile Active ✅")
-
-# --- 7. CORE APP LOOP ---
+# --- 6. CORE APP LOOP ---
 if uploaded_files:
     # Auto-Sync Trigger
     current_fp = f"{len(uploaded_files)}-{'-'.join([f.name for f in uploaded_files])}"
@@ -85,7 +78,7 @@ if uploaded_files:
                 st.session_state["last_sync"] = current_fp
                 status.update(label="Sync Complete! 💌", state="complete")
 
-    # Display Closet Items
+    # Display Closet
     st.subheader("👕 Digital Closet")
     cols = st.columns(5)
     images_for_ai = [PIL.Image.open(f) for f in uploaded_files]
@@ -98,32 +91,21 @@ if uploaded_files:
     for m in st.session_state.messages:
         with st.chat_message(m["role"]): st.markdown(m["content"])
 
-    if prompt := st.chat_input("What should I wear today?"):
+    if prompt := st.chat_input("What should I wear for a business dinner?"):
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"): st.markdown(prompt)
         
         with st.chat_message("assistant"):
             with st.spinner("Vogue-Bot is thinking..."):
                 client = genai.Client(api_key=api_key)
-                
-                # Dynamic Logic: Combine Face + Clothes if available
-                all_inputs = []
-                sys_instr = "You are Vogue-Bot, a high-end fashion editor."
-                
-                if uploaded_face:
-                    face_img = PIL.Image.open(uploaded_face)
-                    all_inputs.append(face_img)
-                    sys_instr += " Analyze the user's face first for skin undertones and seasonal color palette. Ensure all outfit suggestions harmonize with their features."
-                
-                all_inputs.extend(images_for_ai)
-                all_inputs.append(prompt)
-
+                # Persona-driven prompt
+                sys_instr = "You are Vogue-Bot, a high-end fashion editor. Explain the 'why' behind your color and texture pairings."
                 response = client.models.generate_content(
                     model=model_choice, 
-                    contents=all_inputs,
+                    contents=[*images_for_ai, prompt],
                     config={"system_instruction": sys_instr}
                 )
                 st.markdown(response.text)
                 st.session_state.messages.append({"role": "assistant", "content": response.text})
 else:
-    st.info("👋 Ready! Start by uploading clothes in the 'Your Closet' tab.")
+    st.info("👋 Ready to style! Upload clothes in the sidebar to build your digital vault.")
