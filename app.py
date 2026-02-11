@@ -5,8 +5,8 @@ import smtplib
 from email.message import EmailMessage
 
 # --- 1. APP CONFIG ---
-st.set_page_config(page_title="AI Digital Stylist", layout="wide", page_icon="👗")
-st.title("👗 AI Digital Stylist (2026 Edition)")
+st.set_page_config(page_title=" Digital Stylist", layout="wide", page_icon="👗")
+st.title("👗  Digital Stylist 1.0")
 
 # --- 2. SECRETS ---
 api_key = st.secrets.get("GEMINI_API_KEY")
@@ -78,4 +78,5 @@ if uploaded_files:
             response = client.models.generate_content(model=model_choice, contents=[*images_for_ai, prompt])
             st.markdown(response.text)
             st.session_state.messages.append({"role": "assistant", "content": response.text})
+
 
